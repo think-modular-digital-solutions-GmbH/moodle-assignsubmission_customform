@@ -62,6 +62,8 @@ class customform {
 
     /**
      * Constructor.
+     *
+     * @param stdClass $config Plugin config.
      */
     public function __construct(stdClass $config) {
         $this->config = $config;
