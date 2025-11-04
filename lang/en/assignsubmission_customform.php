@@ -27,9 +27,19 @@ $string['allowcustomformsubmissions'] = 'Enabled';
 $string['enabled'] = 'Custom form';
 $string['enabled_help'] = 'If enabled, you will be able to define a custom form, which students can fill out in their submission.';
 $string['eventassessableuploaded'] = 'An custom form submission has been uploaded.';
-$string['formdata'] = 'Form data';
-$string['howto'] = '<h4>How to create a custom form:</h4>
-    <ul>
+$string['formdata'] = 'Custom form definition';
+$string['formdata_example'] = 'Example form definition';
+$string['formdata_example_text'] = '<pre>
+html|&lt;h3&gt;Personal Information&lt;/h3&gt;
+text|Your Name|true
+textarea|Your Address|true
+select|Your Country|true|[Austria,Switzerland,Germany]
+multiselect|Languages Spoken|false|[English,French,Spanish,German,Italian]
+checkbox|Subscribe to Newsletter
+date_selector|Date of Birth|true
+date_time_selector|Appointment Time
+</pre>';
+$string['formdata_help'] = '<ul>
         <li>Define form elements in this format:
             <pre>elementtype|label|required|options</pre>
         </li>
@@ -45,23 +55,16 @@ $string['howto'] = '<h4>How to create a custom form:</h4>
             <li>date_selector</li>
             <li>date_time_selector</li>
         </ul></li>
-        <li>For select elements, provide options separated by commas inside square brackets</li>
-        <li>Example:
-            <pre>
-                html|&lt;h3&gt;Personal Information&lt;/h3&gt;
-                text|Your Name|true
-                textarea|Your Address|true
-                select|Your Country|true|[Austria,Switzerland,Germany]
-                multiselect|Languages Spoken|false|[English,French,Spanish,German,Italian]
-                checkbox|Subscribe to Newsletter
-                date_selector|Date of Birth|true
-                date_time_selector|Appointment Time
-            </pre>
+        <li>For select elements, provide options separated by commas inside square brackets:
+            <pre>select|Your Country|true|[Austria,Switzerland,Germany]</pre>
         </li>
     </ul>';
+$string['formdata_warning'] = 'Form definition cannot be changed, submissions already exist.';
 $string['invalidformdata'] = 'Skipping invalid form element definition: {$a}';
 $string['invalidformelement'] = 'Skipping invalid form element: {$a}';
+$string['invaliduserdata'] = 'Skipping invalid user field: {$a}';
 $string['nosubmission'] = 'Nothing has been submitted for this assignment';
+$string['overview'] = 'Custom form submission overview';
 $string['pluginname'] = 'Custom form submission';
 $string['privacy:metadata:assignmentid'] = 'Assignment ID';
 $string['privacy:metadata:filepurpose'] = 'Files that are embedded in the text submission.';
@@ -70,3 +73,7 @@ $string['privacy:metadata:tablepurpose'] = 'Stores the text submission for each 
 $string['privacy:metadata:textpurpose'] = 'The actual text submitted for this attempt of the assignment.';
 $string['privacy:path'] = 'Submission Text';
 $string['title'] = 'Custom form title';
+$string['userdata'] = 'Custom form user data';
+$string['userdata_allowed_fields'] = 'Allowed fields';
+$string['userdata_help'] = 'If you want additional columns with user data in the submission overview table (and its csv/xlsx export), you can specify them here as a comma-separated list.';
+$string['viewall'] = 'View all custom form submissions';

@@ -1,5 +1,5 @@
 <?php
-// This file is part of mod_extserver for Moodle - http://moodle.org/
+// This file is part of Moodle - http://moodle.org/
 //
 // It is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ namespace assignsubmission_customform;
 use html_writer;
 use MoodleQuickForm;
 use stdClass;
+use assign;
 
 /**
  * This class builds custom forms from formdata.
@@ -37,7 +38,7 @@ use stdClass;
  * @copyright  2025 think modular
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class form {
+class customform {
     /** @var array List of allowed form elements. */
     const ALLOWED_ELEMENTS = [
         'html',
@@ -50,13 +51,64 @@ class form {
         'date_time_selector',
     ];
 
+    /** @var stdClass Plugin config. */
+    public stdClass $config;
+    /** @var array List of element types. */
+    public array $types;
+    /** @var array List of element labels. */
+    public array $labels;
+    /** @var array List of element options. */
+    public array $options;
+
+    /**
+     * Constructor.
+     */
+    public function __construct(stdClass $config) {
+        $this->config = $config;
+
+        $formdata = [];
+        $formdata['types'] = [];
+        $formdata['labels'] = [];
+        $formdata['options'] = [];
+        $elements = explode("\n", trim($this->config->formdata));
+        $i = 0;
+        foreach ($elements as $element) {
+            // Get parts.
+            if (!self::validate($element)) {
+                continue;
+            }
+            $elementparts = explode('|', trim($element));
+
+            // Skip html elements.
+            $type = $elementparts[0];
+            if ($type == 'html') {
+                continue;
+            }
+
+            // Collect types.
+            $this->types[$i] = $type;
+
+            // Collect labels.
+            $this->labels[$i] = $elementparts[1];
+
+            // Collect options.
+            $optionsdata = $elementparts[3] ?? '';
+            if ($optionsdata) {
+                $optionsdata = trim($optionsdata, '[]');
+                $this->options[$i] = array_map('trim', explode(',', $optionsdata));
+            }
+
+            $i++;
+        }
+    }
+
     /**
      * Builds a custom form from formdata.
      *
      * @param MoodleQuickForm $mform The Moodle form to add elements to.
      * @param string $formdata The formdata.
      */
-    public static function build(MoodleQuickForm $mform, string $formdata) {
+    public function build(MoodleQuickForm $mform, string $formdata) {
 
         $elements = explode("\n", trim($formdata));
         $i = 0;
@@ -105,92 +157,76 @@ class form {
      * Formats the submission data for display.
      *
      * @param string $data The submission data.
-     * @param stdClass $config The plugin config.
-     * @return string The formatted submission data.
+     * @return string HTML formatted result.
      */
-    public static function result(string $data, stdClass $config): string {
-        $result = '';
-        $types = [];
-        $labels = [];
-        $options = [];
-        $elements = explode("\n", trim($config->formdata));
-        $i = 0;
-        foreach ($elements as $element) {
-            // Get parts.
-            if (!self::validate($element)) {
-                continue;
-            }
-            $elementparts = explode('|', trim($element));
-
-            // Skip html elements.
-            $type = $elementparts[0];
-            if ($type == 'html') {
-                $result .= $elementparts[1];
-                continue;
-            }
-
-            // Collect types.
-            $types[] = $type;
-
-            // Collect labels.
-            $label = $elementparts[1];
-            $labels[] = $label;
-
-            // Collect options.
-            $optionsdata = $elementparts[3] ?? '';
-            if ($optionsdata) {
-                $optionsdata = trim($optionsdata, '[]');
-                $options[$i] = array_map('trim', explode(',', $optionsdata));
-            } else {
-                $options[$i] = [];
-            }
-            $i++;
-        }
-
-        $submissiondata = json_decode($data, true);
-        $i = 0;
-        foreach ($submissiondata as $key => $value) {
-            $label = $labels[$i];
+    public function result_html(string $data): string {
+        $result = $this->decode_data($data);
+        $html = '';
+        foreach ($result as $key => $value) {
+            $label = $this->labels[$key];
             $line = html_writer::div(htmlspecialchars($label), 'font-weight-bold col-md-3');
-            if (array_key_exists($i, $options) && !empty($options[$i])) {
-                // Map option values to their labels.
-                if (is_array($value)) {
-                    $mappedvalues = [];
-                    foreach ($value as $val) {
-                        $mappedvalues[] = $options[$i][$val] ?? $val;
-                    }
-                    $value = implode(', ', $mappedvalues);
-                } else {
-                    $value = $options[$i][$value] ?? $value;
-                }
+            $line .= html_writer::div($value, 'value col-md-9');
+            $html .= html_writer::div($line, 'row py-2');
+        }
+        return html_writer::div($html, 'container');
+    }
+
+    /**
+     * Returns the submission data as an array.
+     *
+     * @param string $data The submission data as a JSON string.
+     * @return array submission data as an array.
+     */
+    public function decode_data(string $data): array {
+        $formdata = [];
+        $submissiondata = json_decode($data, true);
+        for ($i = 0; $i < (count($this->labels)); $i++) {
+            // Get value.
+            $elementkey = $i + 1;
+            $key = "assignsubmission_customform_element_$elementkey";
+            if (!array_key_exists($key, $submissiondata)) {
+                $value = '';
             } else {
-                // No options, just return the raw value.
-                if (is_array($value)) {
-                    $value = implode(', ', $value);
-                }
-            };
-            $formvalue = htmlspecialchars(is_array($value) ? implode(', ', $value) : $value);
+                $value = $submissiondata[$key];
+            }
 
             // For date selectors, format the timestamp.
-            if (in_array($types[$i], ['date_selector', 'date_time_selector'])) {
+            if (in_array($this->types[$i], ['date_selector', 'date_time_selector'])) {
                 $timestamp = (int)$value;
                 if ($timestamp > 0) {
                     $formvalue = userdate($timestamp);
                 } else {
                     $formvalue = '';
                 }
-            }
-
-            // For checkboxes, show yes/no.
-            if ($types[$i] == 'checkbox') {
+            } else if ($this->types[$i] == 'checkbox') {
+                // For checkboxes, show yes/no.
                 $formvalue = ($value) ? get_string('yes') : get_string('no');
+            } else {
+                if (array_key_exists($i, $this->options) && !empty($this->options[$i])) {
+                    // Map option values to their labels.
+                    if (is_array($value)) {
+                        $mappedvalues = [];
+                        foreach ($value as $val) {
+                            $mappedvalues[] = $this->options[$i][$val] ?? $val;
+                        }
+                        $value = implode(', ', $mappedvalues);
+                    } else {
+                        $value = $this->options[$i][$value] ?? $value;
+                    }
+                } else {
+                    // No options, just return the raw value.
+                    if (is_array($value)) {
+                        $value = implode(', ', $value);
+                    }
+                };
+                $formvalue = htmlspecialchars(is_array($value) ? implode(', ', $value) : $value);
             }
 
-            $line .= html_writer::div($formvalue, 'value col-md-9');
-            $result .= html_writer::div($line, 'row py-2');
-            $i++;
+            // Add to data.
+            $formdata[$i] = $formvalue;
         }
-        return $result;
+
+        return $formdata;
     }
 
     /**

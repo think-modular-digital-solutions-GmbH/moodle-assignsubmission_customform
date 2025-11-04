@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Library file for external server submission plugin
+ * Library file for custom form submission plugin
  *
  * @package    assignsubmission_customform
  * @author     Stefan Weber <stefan.weber@think-modular.com>
@@ -23,10 +23,11 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-use assignsubmission_customform\form;
+use assignsubmission_customform\customform;
+use assignsubmission_customform\helper;
 
 /**
- * Library class for external server submission plugin
+ * Library class for custom form submission plugin
  *
  * @package    assignsubmission_customform
  * @author     Stefan Weber <stefan.weber@think-modular.com>
@@ -54,14 +55,29 @@ class assign_submission_customform extends assign_submission_plugin {
     }
 
     /**
+     * Remove a submission.
+     *
+     * @param stdClass $submission The submission
+     * @return boolean
+     */
+    public function remove(stdClass $submission) {
+        global $DB;
+
+        $submissionid = $submission ? $submission->id : 0;
+        if ($submissionid) {
+            $DB->delete_records('assignsubmission_customform', ['submission' => $submissionid]);
+        }
+        return true;
+    }
+
+    /**
      * Get the default setting for exernal server submission plugin
      *
      * @param MoodleQuickForm $mform The form to add elements to
      * @return void
      */
     public function get_settings(MoodleQuickForm $mform): void {
-
-        global $OUTPUT;
+        global $DB, $OUTPUT;
 
         // Title.
         $mform->addElement(
@@ -71,25 +87,80 @@ class assign_submission_customform extends assign_submission_plugin {
         );
         $mform->setType('assignsubmission_customform_title', PARAM_TEXT);
         $mform->hideIf('assignsubmission_customform_title', 'assignsubmission_customform_enabled', 'notchecked');
-        $mform->setDefault('assignsubmission_customform_title', $this->get_config('title'));
+        if (!$default = $this->get_config('title')) {
+            $default = '';
+        }
+        $mform->setDefault('assignsubmission_customform_title', $default);
 
-        // How to.
-        $mform->addElement(
-            'static',
-            'assignsubmission_customform_settings_howto',
-            $OUTPUT->notification(get_string('howto', 'assignsubmission_customform'), 'info')
+        // Check if submissions exist to prevent changing form data.
+        $formoptions = ['rows' => 10, 'cols' => 70];
+        $submissionsexist = $DB->record_exists(
+            'assignsubmission_customform',
+            ['assignment' => $this->assignment->get_instance()->id]
         );
-        $mform->hideIf('assignsubmission_customform_settings_howto', 'assignsubmission_customform_enabled', 'notchecked');
+        if ($submissionsexist) {
+            $mform->addElement(
+                'static',
+                'assignsubmission_customform_formdata_warning',
+                '',
+                $OUTPUT->notification(get_string('formdata_warning', 'assignsubmission_customform'), 'warning')
+            );
+            $formoptions['disabled'] = 'disabled';
+        }
 
-        // Form data.
+        // Form elements.
         $mform->addElement(
             'textarea',
             'assignsubmission_customform_formdata',
             get_string('formdata', 'assignsubmission_customform'),
-            ['rows' => 10, 'cols' => 70]
+            $formoptions
         );
         $mform->hideIf('assignsubmission_customform_formdata', 'assignsubmission_customform_enabled', 'notchecked');
-        $mform->setDefault('assignsubmission_customform_formdata', $this->get_config('formdata'));
+        if (!$default = $this->get_config('formdata')) {
+            $default = '';
+        }
+        $mform->setDefault('assignsubmission_customform_formdata', $default);
+        $mform->addHelpButton(
+            'assignsubmission_customform_formdata',
+            'formdata',
+            'assignsubmission_customform'
+        );
+
+        // Form elements example.
+        $mform->addElement(
+            'static',
+            'assignsubmission_customform_settings_example',
+            get_string('formdata_example', 'assignsubmission_customform'),
+            $OUTPUT->notification(get_string('formdata_example_text', 'assignsubmission_customform'), 'info')
+        );
+        $mform->hideIf('assignsubmission_customform_settings_howto', 'assignsubmission_customform_enabled', 'notchecked');
+
+        // Additional user data.
+        $mform->addElement(
+            'textarea',
+            'assignsubmission_customform_userdata',
+            get_string('userdata', 'assignsubmission_customform'),
+            ['rows' => 5, 'cols' => 70]
+        );
+        $mform->hideIf('assignsubmission_customform_userdata', 'assignsubmission_customform_enabled', 'notchecked');
+        if (!$default = $this->get_config('userdata')) {
+            $default = '';
+        }
+        $mform->setDefault('assignsubmission_customform_userdata', $default);
+        $mform->addHelpButton(
+            'assignsubmission_customform_userdata',
+            'userdata',
+            'assignsubmission_customform'
+        );
+
+        // Userdata how to.
+        $mform->addElement(
+            'static',
+            'assignsubmission_customform_settings_howto',
+            get_string('userdata_allowed_fields', 'assignsubmission_customform'),
+            $OUTPUT->notification(implode(', ', array_keys(helper::get_userfields())), 'info')
+        );
+        $mform->hideIf('assignsubmission_customform_settings_howto', 'assignsubmission_customform_enabled', 'notchecked');
     }
 
     /**
@@ -99,8 +170,9 @@ class assign_submission_customform extends assign_submission_plugin {
      * @return bool
      */
     public function save_settings(stdClass $data): bool {
-        $this->set_config('formdata', $data->assignsubmission_customform_formdata);
         $this->set_config('title', $data->assignsubmission_customform_title);
+        $this->set_config('formdata', $data->assignsubmission_customform_formdata);
+        $this->set_config('userdata', $data->assignsubmission_customform_userdata);
         return true;
     }
 
@@ -109,7 +181,7 @@ class assign_submission_customform extends assign_submission_plugin {
      *
      * @param stdClass $data
      */
-    public function get_customformdata(stdClass $data): string {
+    public function get_customformdata(stdClass $data): array {
         $customformdata = [];
         foreach ($data as $key => $value) {
             if (strpos($key, 'assignsubmission_customform_') === 0) {
@@ -141,7 +213,8 @@ class assign_submission_customform extends assign_submission_plugin {
         );
 
         // Create custom form.
-        form::build($mform, $formdata);
+        $customform = new customform($config);
+        $customform->build($mform, $formdata);
 
         // Set submitted data.
         if ($submission) {
@@ -196,7 +269,7 @@ class assign_submission_customform extends assign_submission_plugin {
         $groupid = 0;
         // Get the group name as other fields are not transcribed in the logs and this information is important.
         if (empty($submission->userid) && !empty($submission->groupid)) {
-            $groupname = $DB->get_field('groups', 'name', ['id' => $submission->groupid]), MUST_EXIST);
+            $groupname = $DB->get_field('groups', 'name', ['id' => $submission->groupid], MUST_EXIST);
             $groupid = $submission->groupid;
         } else {
             $params['relateduserid'] = $submission->userid;
@@ -237,14 +310,15 @@ class assign_submission_customform extends assign_submission_plugin {
     }
 
     /**
-     * Display only the showviewlink
+     * Display only the showviewlink if there is a submission
      *
      * @param stdClass $submission
      * @param bool $showviewlink - If the summary has been truncated set this to true
      * @return string
      */
     public function view_summary(stdClass $submission, &$showviewlink): string {
-        $showviewlink = true;
+        $customformsubmission = $this->get_customform_submission($submission->id);
+        $showviewlink = ($customformsubmission);
         return '';
     }
 
@@ -260,7 +334,8 @@ class assign_submission_customform extends assign_submission_plugin {
         }
         $config = $this->get_config();
         $showviewlink = true;
-        return form::result($customformsubmission->data, $config);
+        $customform = new customform($config);
+        return $customform->result_html($customformsubmission->data);
     }
 
     /**
@@ -336,8 +411,18 @@ class assign_submission_customform extends assign_submission_plugin {
      * @return string
      */
     public function view_header(): string {
+        global $OUTPUT;
 
-        $html = '';
+        // Render button to view all submissions.
+        $url = new moodle_url(
+            '/mod/assign/submission/customform/overview.php',
+            ['id' => $this->assignment->get_course_module()->id]
+        );
+        $html = html_writer::link(
+            $url,
+            get_string('viewall', 'assignsubmission_customform'),
+            ['class' => 'btn btn-secondary mb-3']
+        );
         return $html;
     }
 }
