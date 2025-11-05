@@ -195,7 +195,6 @@ class customform {
                 $value = $submissiondata[$key];
             }
 
-
             if ($this->types[$i] == 'html') {
                 continue;
             } else if (in_array($this->types[$i], ['date_selector', 'date_time_selector'])) {
