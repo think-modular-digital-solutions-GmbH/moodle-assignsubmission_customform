@@ -418,6 +418,11 @@ class assign_submission_customform extends assign_submission_plugin {
     public function view_header(): string {
         global $OUTPUT;
 
+        $context = context_module::instance($this->assignment->get_course_module()->id);
+        if (!has_capability('mod/assign:viewgrades', $context)) {
+            return '';
+        }
+
         // Render button to view all submissions.
         $url = new moodle_url(
             '/mod/assign/submission/customform/overview.php',
