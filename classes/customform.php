@@ -84,14 +84,15 @@ class customform {
             }
             $elementparts = explode('|', trim($element));
 
-            // Skip html elements.
+            // Collect types.
             $type = $elementparts[0];
+            $this->types[$i] = $type;
+
+            // Skip html elements.
             if ($type == 'html') {
+                $i++;
                 continue;
             }
-
-            // Collect types.
-            $this->types[$i] = $type;
 
             // Collect labels.
             $this->labels[$i] = $elementparts[1];
@@ -185,18 +186,20 @@ class customform {
     public function decode_data(string $data): array {
         $formdata = [];
         $submissiondata = json_decode($data, true);
-        for ($i = 0; $i < (count($this->labels)); $i++) {
+        for ($i = 0; $i < (count($this->types)); $i++) {
             // Get value.
-            $elementkey = $i + 1;
-            $key = "assignsubmission_customform_element_$elementkey";
+            $key = "assignsubmission_customform_element_$i";
             if (!array_key_exists($key, $submissiondata)) {
                 $value = '';
             } else {
                 $value = $submissiondata[$key];
             }
 
-            // For date selectors, format the timestamp.
-            if (in_array($this->types[$i], ['date_selector', 'date_time_selector'])) {
+
+            if ($this->types[$i] == 'html') {
+                continue;
+            } else if (in_array($this->types[$i], ['date_selector', 'date_time_selector'])) {
+                // For date selectors, format the timestamp.
                 $timestamp = (int)$value;
                 if ($timestamp > 0) {
                     $formvalue = userdate($timestamp);
