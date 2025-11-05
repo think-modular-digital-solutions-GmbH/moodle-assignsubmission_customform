@@ -94,10 +94,15 @@ class assign_submission_customform extends assign_submission_plugin {
 
         // Check if submissions exist to prevent changing form data.
         $formoptions = ['rows' => 10, 'cols' => 70];
-        $submissionsexist = $DB->record_exists(
-            'assignsubmission_customform',
-            ['assignment' => $this->assignment->get_instance()->id]
-        );
+        $submissionsexist = false;
+        $assignment = $this->assignment;
+        if ($assignment && $assignment->has_instance()) {
+            $assignid = $assignment->get_instance()->id;
+            $submissionsexist = $DB->record_exists(
+                'assignsubmission_customform',
+                ['assignment' => $assignid]
+            );
+        }
         if ($submissionsexist) {
             $mform->addElement(
                 'static',
