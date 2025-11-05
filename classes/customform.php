@@ -67,6 +67,9 @@ class customform {
      */
     public function __construct(stdClass $config) {
         $this->config = $config;
+        $this->types = [];
+        $this->labels = [];
+        $this->options = [];
 
         $formdata = [];
         $formdata['types'] = [];
