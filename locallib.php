@@ -138,7 +138,7 @@ class assign_submission_customform extends assign_submission_plugin {
             get_string('formdata_example', 'assignsubmission_customform'),
             $OUTPUT->notification(get_string('formdata_example_text', 'assignsubmission_customform'), 'info')
         );
-        $mform->hideIf('assignsubmission_customform_settings_howto', 'assignsubmission_customform_enabled', 'notchecked');
+        $mform->hideIf('assignsubmission_customform_settings_example', 'assignsubmission_customform_enabled', 'notchecked');
 
         // Additional user data.
         $mform->addElement(
