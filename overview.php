@@ -93,6 +93,11 @@ if ($config->userdata) {
 $columns = array_merge($headers, array_keys($customform->labels));
 $headers = array_merge($headers, $customform->labels);
 
+// Add column for grades.
+$columns[] = 'grade';
+$headers[] = get_string('gradenoun');
+$table->column_class('grade', 'rightalign');
+
 // Truncate headers.
 foreach ($headers as $key => $header) {
     $headers[$key] = shorten_text($header, 50);
@@ -105,6 +110,17 @@ $table->setup();
 
 // Get submission data.
 $customformsubmissions = $DB->get_records('assignsubmission_customform', ['assignment' => $cm->instance]);
+
+// Get grades.
+$gradeinfo = grade_get_grades(
+    $course->id,
+    'mod',
+    'assign',
+    $cm->instance,
+    array_keys($customformsubmissions)
+);
+$gradeitem  = $gradeinfo->items[0];
+$usergrades = $gradeitem->grades;
 
 // Output header if not downloading.
 if (!$table->is_downloading()) {
@@ -143,6 +159,15 @@ foreach ($customformsubmissions as $customformsubmission) {
 
     // Add custom form data.
     $row = array_merge($row, $customform->decode_data($customformsubmission->data));
+
+    // Add grade.
+    if (isset($usergrades[$userid]) && $usergrades[$userid]->grade !== null) {
+        // Preformatted grade string (respects course / item display settings).
+        $row[] = $usergrades[$userid]->str_grade;
+    } else {
+        $row[] = '-';
+    }
+
     $table->add_data(array_values($row));
 }
 $table->finish_output();
